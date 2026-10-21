@@ -119,6 +119,10 @@ public sealed class VlcSource : IFrameSource
     public event EventHandler? ImageChanged;
     public event EventHandler? Ended;
 
+    // Plain property reads on the native player: cheap enough for a 10 Hz UI poll.
+    public TimeSpan? Position => !_disposed && _player.Time > 0 ? TimeSpan.FromMilliseconds(_player.Time) : null;
+    public TimeSpan? Duration => !_disposed && _player.Length > 0 ? TimeSpan.FromMilliseconds(_player.Length) : null;
+
     public void Resume()
     {
         if (_disposed) return;

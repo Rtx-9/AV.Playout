@@ -37,12 +37,17 @@
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
 
-                    <!-- kind glyph, top-left -->
-                    <Border Background="#C0000000" CornerRadius="2" Padding="4,0" Margin="4"
-                            HorizontalAlignment="Left" VerticalAlignment="Top"
-                            Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
-                        <TextBlock Text="{Binding KindGlyph}" FontSize="9" Foreground="{StaticResource Text}" />
-                    </Border>
+                    <!-- kind glyph (+ rotation marker), top-left -->
+                    <StackPanel Orientation="Horizontal" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
+                        <Border Background="#C0000000" CornerRadius="2" Padding="4,0">
+                            <TextBlock Text="{Binding KindGlyph}" FontSize="9" Foreground="{StaticResource Text}" />
+                        </Border>
+                        <Border Background="{StaticResource Accent}" CornerRadius="2" Padding="4,0" Margin="3,0,0,0"
+                                Visibility="{Binding InRotation, Converter={StaticResource BoolToVis}}" ToolTip="In sponsor rotation">
+                            <TextBlock Text="↻" FontSize="9" FontWeight="Bold" Foreground="Black" />
+                        </Border>
+                    </StackPanel>
 
                     <!-- hotkey badge, top-right -->
                     <Border Background="{StaticResource Bg0}" BorderBrush="{StaticResource Bg4}" BorderThickness="1"
@@ -58,16 +63,34 @@
                         <TextBlock Text="{Binding ModeText}" FontSize="8" FontWeight="Bold" Foreground="Black" />
                     </Border>
 
-                    <!-- name strip -->
-                    <Border VerticalAlignment="Bottom" Background="#C0000000" Padding="6,2"
+                    <!-- name strip, with time remaining while on air -->
+                    <Border VerticalAlignment="Bottom" Background="#C0000000" Padding="6,2,6,3"
                             Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
-                        <TextBlock Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Text}" />
+                        <DockPanel>
+                            <TextBlock x:Name="Remaining" DockPanel.Dock="Right" Text="{Binding RemainingText}" FontSize="11"
+                                       FontWeight="Bold" FontFamily="{StaticResource NumFont}" Foreground="{StaticResource Accent}"
+                                       Margin="6,0,0,0" />
+                            <TextBlock Text="{Binding Name}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Text}" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- countdown bar -->
+                    <Border x:Name="ProgressBar" Height="3" VerticalAlignment="Bottom" Background="{StaticResource Accent}"
+                            RenderTransformOrigin="0,0.5" IsHitTestVisible="False"
+                            Visibility="{Binding RemainingText, Converter={StaticResource NullToVis}}">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="{Binding Progress}" />
+                        </Border.RenderTransform>
                     </Border>
 
                     <Border x:Name="PlayTint" Background="{StaticResource AccentDim}" Visibility="Collapsed" IsHitTestVisible="False" />
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsEnding}" Value="True">
+                    <Setter TargetName="Remaining" Property="Foreground" Value="{StaticResource Tally}" />
+                    <Setter TargetName="ProgressBar" Property="Background" Value="{StaticResource Tally}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Kind}" Value="Live">
                     <Setter TargetName="LiveGlyph" Property="Visibility" Value="Visible" />
                 </DataTrigger>
@@ -110,8 +133,20 @@
                             <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12" Foreground="{Binding AccentBrush}"
                                        VerticalAlignment="Center" />
                         </DockPanel>
-                        <TextBlock Text="{Binding ActiveSlot.Name, FallbackValue='—'}" Foreground="{StaticResource Muted}"
-                                   FontSize="11" Margin="0,6,0,8" TextTrimming="CharacterEllipsis" />
+                        <DockPanel Margin="0,6,0,2">
+                            <TextBlock x:Name="LayerRemaining" DockPanel.Dock="Right" Text="{Binding RemainingText}"
+                                       FontFamily="{StaticResource NumFont}" FontWeight="Bold" FontSize="13"
+                                       Foreground="{StaticResource Text}" Margin="6,0,0,0" />
+                            <TextBlock Text="{Binding ActiveSlot.Name, FallbackValue='—'}" Foreground="{StaticResource Muted}"
+                                       FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Grid Height="2" Margin="0,0,0,6" Background="{StaticResource Bg3}">
+                            <Border x:Name="LayerProgress" Background="{Binding AccentBrush}" RenderTransformOrigin="0,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="{Binding Progress}" />
+                                </Border.RenderTransform>
+                            </Border>
+                        </Grid>
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Text="{Binding OpacityPercent}" Width="34" TextAlignment="Right"
                                        Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" />
@@ -121,6 +156,12 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsEnding}" Value="True">
+                    <Setter TargetName="LayerRemaining" Property="Foreground" Value="{StaticResource Tally}" />
+                    <Setter TargetName="LayerProgress" Property="Background" Value="{StaticResource Tally}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <ItemsPanelTemplate x:Key="HorizontalPanel">
@@ -158,6 +199,8 @@
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="◰  VENUE 3D" Height="28" Margin="0,0,8,0" Click="Venue_Click"
+                            ToolTip="Live 3D preview of the arena screens, and which part of the canvas each one shows" />
                     <ToggleButton x:Name="GlobalKeysToggle" Style="{StaticResource Toggle}" Content="⌨  GLOBAL KEYS"
                                   Height="28" Margin="0,0,20,0" Click="GlobalKeysToggle_Click"
                                   ToolTip="Clip hotkeys fire even when another application has focus (for USB macro keypads)" />
@@ -241,7 +284,7 @@
         <!-- ═════════════ Bottom: properties | preview | program ═════════════ -->
         <Grid Grid.Row="3" Background="{StaticResource Bg1}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="420" />
+                <ColumnDefinition Width="490" />
                 <ColumnDefinition Width="1" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="1" />
@@ -255,7 +298,10 @@
                 <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
                     <StackPanel Orientation="Horizontal" Margin="6,0">
                         <RadioButton x:Name="ClipTab" Style="{StaticResource Tab}" Content="CLIP" IsChecked="True" />
+                        <RadioButton x:Name="TextTab" Style="{StaticResource Tab}" Content="TEXT" />
                         <RadioButton x:Name="ScoreTab" Style="{StaticResource Tab}" Content="SCOREBOARD" />
+                        <RadioButton x:Name="RotationTab" Style="{StaticResource Tab}" Content="ROTATION" />
+                        <RadioButton x:Name="AsRunTab" Style="{StaticResource Tab}" Content="AS-RUN" />
                     </StackPanel>
                 </Border>
 
@@ -441,6 +487,213 @@
                             </Grid>
                         </StackPanel>
                     </ScrollViewer>
+
+                    <!-- TEXT -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsChecked, ElementName=TextTab, Converter={StaticResource BoolToVis}}">
+                        <StackPanel DataContext="{Binding TextGraphics}">
+                            <DockPanel Margin="0,0,0,6">
+                                <Border DockPanel.Dock="Right" Background="{StaticResource Tally}" CornerRadius="2" Padding="6,1"
+                                        Visibility="{Binding LowerThirdVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="ON AIR" FontSize="9" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock Text="LOWER THIRD" FontWeight="Bold" FontSize="12" />
+                            </DockPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBox Text="{Binding LowerThirdTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"
+                                             ToolTip="Title, e.g. a player name" />
+                                    <TextBox Text="{Binding LowerThirdSubtitle, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Subtitle, e.g. #19 · Forward · 2 goals tonight" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <Button Style="{StaticResource AccentButton}" Content="SHOW" Width="64" Margin="0,0,0,4"
+                                            Tag="ShowLowerThird" Click="Graphics_Click" />
+                                    <Button Content="HIDE" Width="64" Tag="HideLowerThird" Click="Graphics_Click" />
+                                </StackPanel>
+                            </Grid>
+
+                            <DockPanel Margin="0,16,0,6">
+                                <Border DockPanel.Dock="Right" Background="{StaticResource Tally}" CornerRadius="2" Padding="6,1"
+                                        Visibility="{Binding TickerVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="ON AIR" FontSize="9" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock Text="TICKER" FontWeight="Bold" FontSize="12" />
+                            </DockPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBox Text="{Binding TickerText, UpdateSourceTrigger=PropertyChanged, Delay=400}"
+                                             TextWrapping="Wrap" Height="52" VerticalScrollBarVisibility="Auto"
+                                             ToolTip="Scrolling text along the bottom of the canvas" />
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock Text="SPEED" Style="{StaticResource Caption}" Margin="0,0,8,0" />
+                                        <Slider Style="{StaticResource Fader}" Minimum="40" Maximum="400" Value="{Binding TickerSpeed}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <Button Style="{StaticResource AccentButton}" Content="START" Width="64" Margin="0,0,0,4"
+                                            Tag="ShowTicker" Click="Graphics_Click" />
+                                    <Button Content="STOP" Width="64" Tag="HideTicker" Click="Graphics_Click" />
+                                </StackPanel>
+                            </Grid>
+
+                            <DockPanel Margin="0,16,0,6">
+                                <Border DockPanel.Dock="Right" Background="{StaticResource Tally}" CornerRadius="2" Padding="6,1"
+                                        Visibility="{Binding PromptVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="ON AIR" FontSize="9" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock Text="CROWD PROMPT" FontWeight="Bold" FontSize="12" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding PromptPresets}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding}" Margin="0,0,4,4" Click="PromptPreset_Click" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding PromptText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Custom prompt text" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                    <Button Style="{StaticResource AccentButton}" Content="SHOW" Width="64" Margin="0,0,4,0"
+                                            Tag="ShowPrompt" Click="Graphics_Click" />
+                                    <Button Content="HIDE" Width="64" Tag="HidePrompt" Click="Graphics_Click" />
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <ToggleButton Style="{StaticResource Toggle}" Content="AUTO-HIDE" IsChecked="{Binding PromptAutoHide}" Height="24" />
+                                <TextBlock Text="AFTER" Style="{StaticResource Caption}" Margin="10,0,6,0" />
+                                <TextBox Text="{Binding PromptSeconds}" Width="40" Padding="4,1" />
+                                <TextBlock Text="SECONDS" Style="{StaticResource Caption}" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ROTATION -->
+                    <DockPanel Visibility="{Binding IsChecked, ElementName=RotationTab, Converter={StaticResource BoolToVis}}">
+                        <StackPanel DockPanel.Dock="Top">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Width="150" Height="30" Click="Rotation_Click">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                            <Setter Property="Content" Value="▶ START ROTATION" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RotationRunning}" Value="True">
+                                                    <Setter Property="Content" Value="■ STOP ROTATION" />
+                                                    <Setter Property="Background" Value="{StaticResource TallyDim}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Tally}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <TextBlock Text="SPONSOR ROTATION" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,8">
+                                MEDIA clips marked IN cycle automatically. Time 0 plays a video once to its end.
+                                Triggering any other MEDIA clip stops the rotation; takeovers pause it.
+                            </TextBlock>
+                            <Border Background="{StaticResource Bg0}" CornerRadius="3" Padding="8,6" Margin="0,0,0,8"
+                                    Visibility="{Binding RotationStatus, Converter={StaticResource NullToVis}}">
+                                <TextBlock Text="{Binding RotationStatus}" FontFamily="{StaticResource NumFont}" FontSize="13"
+                                           Foreground="{StaticResource Accent}" TextTrimming="CharacterEllipsis" />
+                            </Border>
+                        </StackPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Media.Slots}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource Bg2}" CornerRadius="3" Padding="8,4" Margin="0,0,6,3"
+                                                Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                            <DockPanel>
+                                                <ToggleButton DockPanel.Dock="Left" Style="{StaticResource Toggle}" Content="IN" Width="34"
+                                                              Height="22" Padding="0" Margin="0,0,8,0" IsChecked="{Binding InRotation}" />
+                                                <TextBlock DockPanel.Dock="Right" Text="SEC" Style="{StaticResource Caption}" Margin="6,0,0,0" />
+                                                <TextBox DockPanel.Dock="Right" Text="{Binding DwellSeconds}" Width="46" Padding="4,1"
+                                                         ToolTip="Seconds on air per turn. 0 = play the video once to its end." />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding RemainingText}" Margin="0,0,10,0"
+                                                           FontFamily="{StaticResource NumFont}" FontWeight="Bold" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Accent}" />
+                                                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                    <Run Text="{Binding ColumnNumber, Mode=OneWay}" Foreground="{StaticResource Muted}" />
+                                                    <Run Text="  " /><Run Text="{Binding Name, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+
+                    <!-- AS-RUN -->
+                    <DockPanel x:Name="AsRunPanel"
+                               Visibility="{Binding IsChecked, ElementName=AsRunTab, Converter={StaticResource BoolToVis}}">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="OPEN LOG FOLDER" Click="OpenAsRun_Click"
+                                    ToolTip="One CSV per day: start, end, seconds, clip and trigger for every play" />
+                            <TextBlock Text="TODAY'S AIRTIME" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="1.3*" />
+                            </Grid.RowDefinitions>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Totals}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,1,6,1">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding DurationText}" Width="60" TextAlignment="Right"
+                                                           FontFamily="{StaticResource NumFont}" FontWeight="Bold" />
+                                                <TextBlock DockPanel.Dock="Right" Width="60" TextAlignment="Right" Foreground="{StaticResource Muted}">
+                                                    <Run Text="{Binding Plays, Mode=OneWay}" /><Run Text=" plays" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Clip}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Grid.Row="1" Text="RECENT" Style="{StaticResource Caption}" Margin="0,8,0,4" />
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Recent}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,1,6,1">
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding StartText}" Width="60"
+                                                           FontFamily="{StaticResource NumFont}" Foreground="{StaticResource Muted}" />
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding Layer}" Width="64"
+                                                           Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Origin}" Width="62" TextAlignment="Right"
+                                                           Foreground="{StaticResource Faint}" FontSize="10" VerticalAlignment="Center" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding DurationText}" Width="40" TextAlignment="Right"
+                                                           FontFamily="{StaticResource NumFont}" />
+                                                <TextBlock Text="{Binding Clip}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
                 </Grid>
             </DockPanel>
 
@@ -471,7 +724,29 @@
                             Visibility="{Binding IsTakeoverActive, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="TAKEOVER" FontSize="10" FontWeight="Bold" Foreground="Black" />
                     </Border>
+                    <Border DockPanel.Dock="Right" Background="{StaticResource AccentDim}" BorderBrush="{StaticResource Accent}"
+                            BorderThickness="1" CornerRadius="3" Padding="8,2" Margin="0,0,6,0" VerticalAlignment="Center"
+                            Visibility="{Binding RotationRunning, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="↻ ROTATION" FontSize="10" FontWeight="Bold" />
+                    </Border>
+                    <TextBlock DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center"
+                               FontFamily="{StaticResource NumFont}" FontSize="18" FontWeight="Bold"
+                               ToolTip="Time left on the MEDIA layer">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding Media.RemainingText}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Media.IsEnding}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Tally}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <TextBlock Text="PROGRAM" Style="{StaticResource Caption}" Foreground="{StaticResource Tally}" />
+                    <TextBlock Text="{Binding Media.ActiveSlot.Name, FallbackValue=''}" Margin="10,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource Muted}" />
                 </DockPanel>
                 <Border Background="Black" BorderBrush="{StaticResource Tally}" BorderThickness="1">
                     <c:CompositorView x:Name="ProgramMonitor" />

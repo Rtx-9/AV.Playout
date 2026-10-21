@@ -132,21 +132,38 @@ AV.Playout/
    ├─ App.xaml(.cs)                composition root, keep-awake, crash guard + log, --show
    ├─ Themes/Dark.xaml             control-room theme (faders, toggles, combo, scrollbars)
    ├─ Core/
-   │  ├─ PlayoutEngine.cs          program state, triggers, cue/take, takeovers
+   │  ├─ PlayoutEngine.cs          program state, triggers, cue/take, takeovers, rotation, 10 Hz countdown tick
    │  ├─ Commands/PlayoutCommands.cs
-   │  └─ Layers/  Layer.cs (clip row + A/B decks), Deck.cs (animatable), LayerKind.cs
+   │  └─ Layers/  Layer.cs (clip row + A/B decks + countdown), Deck.cs (animatable), LayerKind.cs
    ├─ Media/
    │  ├─ IFrameSource.cs           contract for every picture source (+ StillSource)
-   │  ├─ VlcSource.cs              LibVLC → WriteableBitmap, buffer ring, cue/pause
-   │  ├─ ClipSlot.cs               one grid cell: source, mode, hotkey, tally
+   │  ├─ VlcSource.cs              LibVLC → WriteableBitmap, buffer ring, cue/pause, position
+   │  ├─ ClipSlot.cs               one grid cell: source, mode, hotkey, rotation, tally
    │  └─ ClipLoader.cs             classify, decode stills, grab thumbnails
-   ├─ Graphics/Scoreboard.cs       clock, periods, scores, penalties
+   ├─ Graphics/
+   │  ├─ Scoreboard.cs             clock, periods, scores, penalties
+   │  └─ TextGraphics.cs           lower third, frame-synced ticker, crowd prompts
+   ├─ Venue/
+   │  ├─ ScreenDefinition.cs       physical screen ↔ canvas region
+   │  └─ ArenaModelBuilder.cs      procedural 3D arena (bowl, rink, cube, ribbon, end board)
    ├─ Triggers/  GlobalKeyboardHook.cs, Hotkey.cs
-   ├─ Services/  DisplayService.cs, ShowStore.cs, Log.cs
+   ├─ Services/  DisplayService.cs, ShowStore.cs, AsRunLog.cs, Log.cs
    ├─ Interop/NativeMethods.cs
    ├─ Controls/  CompositorView, ScoreBug, Converters
-   └─ Windows/   ControlWindow (dashboard), OutputWindow (LED output)
+   └─ Windows/   ControlWindow (dashboard), OutputWindow (LED output), VenueWindow (3D preview)
 ```
+
+### Venue visualizer
+
+`VenueWindow` hosts its own `CompositorView` (the canvas map) and textures every
+3D screen with a `VisualBrush` of that view's canvas, cropped to the screen's
+region (`Viewbox` in canvas pixels) and applied as an `EmissiveMaterial` so the
+LEDs glow in the dark bowl. Whatever is on the output (video, crossfades,
+scorebug, ticker) appears on the model in real time. The ribbon repeats its
+region N times around the bowl by repeating texture coordinates in the mesh;
+WPF can't reliably tile a brush across a surface that long and thin. The
+mapping is for visualization and planning: the LED processor still receives the
+whole canvas and does the real slicing.
 
 ## 6. Roadmap
 
@@ -156,8 +173,8 @@ AV.Playout/
 | 2 | Media layer: LibVLC renderer, clip grid, crossfades, PVW/PGM | ✅ |
 | 3 | Global hotkeys, takeovers | ✅ (Raw Input + MIDI next) |
 | 4 | Live layer: capture / streams ✅, NDI ⏳ | partial |
-| 5 | Scorebug ✅, HTML overlays ⏳ | partial |
-| 6 | Show file ✅, as-run log for sponsor proof-of-play, watchdog, settings UI (canvas size) | partial |
+| 5 | Scorebug ✅, lower third / ticker / prompts ✅, HTML overlays ⏳ | partial |
+| 6 | Show file ✅, as-run log ✅, sponsor rotation ✅, countdowns ✅, venue 3D ✅, watchdog ⏳, settings UI (canvas size) ⏳ | partial |
 
 ## 7. Timing notes
 

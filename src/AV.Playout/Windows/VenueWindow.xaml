@@ -1,0 +1,145 @@
+<Window x:Class="AV.Playout.Windows.VenueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AV.Playout.Controls"
+        Title="AV Playout — Venue"
+        Width="1500" Height="900" MinWidth="1000" MinHeight="640"
+        Background="{StaticResource Bg0}"
+        Foreground="{StaticResource Text}"
+        FontFamily="{StaticResource UiFont}"
+        FontSize="12"
+        UseLayoutRounding="True">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="1" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="1" Background="{StaticResource Line}" />
+
+        <!-- ═════ Left: canvas map + screen list + camera ═════ -->
+        <DockPanel Grid.Column="0" Background="{StaticResource Bg1}">
+            <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0">
+                <TextBlock Text="VENUE" FontWeight="Bold" FontSize="14" />
+                <TextBlock Text="Which part of the output canvas each screen shows" Foreground="{StaticResource Muted}"
+                           FontSize="11" Margin="0,2,0,10" />
+
+                <TextBlock Text="CANVAS MAP" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                <Border Background="Black" BorderBrush="{StaticResource Bg4}" BorderThickness="1">
+                    <Viewbox>
+                        <Grid Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                            <!-- The live program: also the texture source for every 3D screen -->
+                            <c:CompositorView x:Name="MapCompositor" />
+                            <ItemsControl ItemsSource="{Binding Screens}" IsHitTestVisible="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding X}" />
+                                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Width="{Binding Width}" Height="{Binding Height}"
+                                              Visibility="{Binding Enabled, Converter={StaticResource BoolToVis}}">
+                                            <Rectangle Stroke="{Binding ColorBrush}" StrokeThickness="10" StrokeDashArray="3 2" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Viewbox>
+                </Border>
+                <TextBlock Text="SCREENS" Style="{StaticResource Caption}" Margin="0,14,0,4" />
+                <Grid Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="48" />
+                        <ColumnDefinition Width="48" />
+                        <ColumnDefinition Width="48" />
+                        <ColumnDefinition Width="48" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="X" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="Y" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="W" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="4" Text="H" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="14,10,14,14">
+                <TextBlock Text="CAMERA" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                <WrapPanel>
+                    <Button Content="OVERVIEW" Margin="0,0,4,4" Tag="Overview" Click="Camera_Click" />
+                    <Button Content="LOWER BOWL" Margin="0,0,4,4" Tag="LowerBowl" Click="Camera_Click" />
+                    <Button Content="UPPER DECK" Margin="0,0,4,4" Tag="UpperDeck" Click="Camera_Click" />
+                    <Button Content="END BOARD" Margin="0,0,4,4" Tag="EndBoard" Click="Camera_Click" />
+                    <ToggleButton x:Name="OrbitToggle" Style="{StaticResource Toggle}" Content="⟳ AUTO ORBIT"
+                                  Margin="0,0,4,4" Height="27" Click="Orbit_Click" />
+                </WrapPanel>
+                <Button Content="RESET SCREEN LAYOUT" HorizontalAlignment="Left" Margin="0,8,0,0" Click="ResetScreens_Click" />
+            </StackPanel>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="14,0,8,0">
+                <ItemsControl ItemsSource="{Binding Screens}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource Bg2}" CornerRadius="3" Padding="8,6" Margin="0,0,6,4">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="48" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ToggleButton Style="{StaticResource Toggle}" IsChecked="{Binding Enabled}" Width="16" Height="16"
+                                                          Padding="0" Margin="0,0,6,0" ToolTip="Screen on / off"
+                                                          Background="{Binding ColorBrush}" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBox Grid.Column="1" Text="{Binding X}" Margin="2,0" Padding="3,2" FontSize="11" />
+                                        <TextBox Grid.Column="2" Text="{Binding Y}" Margin="2,0" Padding="3,2" FontSize="11" />
+                                        <TextBox Grid.Column="3" Text="{Binding Width}" Margin="2,0" Padding="3,2" FontSize="11" />
+                                        <TextBox Grid.Column="4" Text="{Binding Height}" Margin="2,0" Padding="3,2" FontSize="11" />
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="22,4,0,0"
+                                                Visibility="{Binding IsRibbon, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="REPEATS AROUND THE BOWL" Style="{StaticResource Caption}" />
+                                        <TextBox Text="{Binding Repeat}" Width="40" Margin="8,0,0,0" Padding="3,2" FontSize="11" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- ═════ Right: 3D arena ═════ -->
+        <Grid Grid.Column="2" Background="#FF050608" x:Name="ViewportHost"
+              MouseLeftButtonDown="Viewport_MouseLeftButtonDown" MouseMove="Viewport_MouseMove"
+              MouseLeftButtonUp="Viewport_MouseLeftButtonUp" MouseWheel="Viewport_MouseWheel">
+            <Viewport3D x:Name="Viewport" ClipToBounds="True" RenderOptions.EdgeMode="Unspecified">
+                <Viewport3D.Camera>
+                    <PerspectiveCamera x:Name="Camera" FieldOfView="55" UpDirection="0,0,1" NearPlaneDistance="0.5" FarPlaneDistance="600" />
+                </Viewport3D.Camera>
+                <ModelVisual3D x:Name="SceneRoot" />
+            </Viewport3D>
+            <TextBlock Text="drag to orbit  ·  scroll to zoom" Foreground="{StaticResource Faint}" FontSize="11"
+                       HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14,0,0,10" IsHitTestVisible="False" />
+            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14,12" Background="#B0000000" CornerRadius="3" Padding="10,6">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource Tally}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="LIVE VENUE PREVIEW" FontWeight="Bold" FontSize="11" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

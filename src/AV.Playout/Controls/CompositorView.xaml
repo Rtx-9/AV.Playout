@@ -14,10 +14,10 @@
           0  background colour
           1  MEDIA     (sponsor loops, hype videos, stills)
           2  LIVE      (camera / capture / stream)
-          3  GRAPHICS  (alpha clips, then the scorebug on top)
+          3  GRAPHICS  (alpha clips, then text graphics and the scorebug)
     -->
     <Viewbox Stretch="Uniform">
-        <Grid Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" ClipToBounds="True" Background="Black">
+        <Grid x:Name="CanvasRoot" Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" ClipToBounds="True" Background="Black">
             <Grid Opacity="{Binding MasterOpacity}">
                 <Rectangle Fill="{Binding Background}" />
 
@@ -43,12 +43,150 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Scorebug: part of the graphics layer, drawn as native WPF text -->
+                <!-- Text graphics and scorebug: part of the graphics layer, drawn as native WPF text -->
                 <Grid Opacity="{Binding Graphics.Opacity}"
-                      Visibility="{Binding Graphics.Bypass, Converter={StaticResource InverseBoolToVis}}">
-                    <c:ScoreBug DataContext="{Binding Scoreboard}"
-                                Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}"
-                                HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,56" />
+                      Visibility="{Binding Graphics.Bypass, Converter={StaticResource InverseBoolToVis}}"
+                      TextOptions.TextFormattingMode="Ideal"
+                      TextOptions.TextRenderingMode="Grayscale">
+
+                    <!-- Lower third: slides in from the left -->
+                    <Grid DataContext="{Binding TextGraphics}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                          Margin="90,0,0,230" Opacity="0">
+                        <Grid.RenderTransform>
+                            <TranslateTransform X="-120" />
+                        </Grid.RenderTransform>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LowerThirdVisible}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.3" />
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                     To="0" Duration="0:0:0.45">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" />
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                     To="-120" Duration="0:0:0.3" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <StackPanel>
+                            <Border Background="#EE101216" BorderBrush="#FF22C3E6" BorderThickness="12,0,0,0" Padding="30,12,48,14">
+                                <TextBlock Text="{Binding LowerThirdTitle}" FontFamily="{StaticResource NumFont}"
+                                           FontSize="58" FontWeight="Bold" Foreground="White" />
+                            </Border>
+                            <Border Background="#EE22C3E6" Padding="42,6,48,8" HorizontalAlignment="Left"
+                                    Visibility="{Binding LowerThirdSubtitle, Converter={StaticResource NullToVis}}">
+                                <TextBlock Text="{Binding LowerThirdSubtitle}" FontFamily="{StaticResource NumFont}"
+                                           FontSize="34" FontWeight="SemiBold" Foreground="#FF0D0E10" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Scorebug: lifts above the ticker when the ticker is running -->
+                    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Margin" Value="0,0,0,56" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TextGraphics.TickerVisible}" Value="True">
+                                        <Setter Property="Margin" Value="0,0,0,96" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <c:ScoreBug DataContext="{Binding Scoreboard}"
+                                    Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}" />
+                    </Border>
+
+                    <!-- Ticker: offset computed once per frame by TextGraphics, so every view scrolls in sync -->
+                    <Border DataContext="{Binding TextGraphics}" VerticalAlignment="Bottom" Height="66"
+                            Background="#F20D0E10" BorderBrush="#FF22C3E6" BorderThickness="0,4,0,0"
+                            Visibility="{Binding TickerVisible, Converter={StaticResource BoolToVis}}">
+                        <Canvas ClipToBounds="True">
+                            <ItemsControl ItemsSource="{Binding TickerCopies}" Canvas.Top="5">
+                                <ItemsControl.RenderTransform>
+                                    <TranslateTransform X="{Binding TickerOffset}" />
+                                </ItemsControl.RenderTransform>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="{StaticResource NumFont}" FontSize="40"
+                                                   FontWeight="SemiBold" Foreground="White" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Canvas>
+                    </Border>
+
+                    <!-- Crowd prompt: pops in, then pulses -->
+                    <Viewbox DataContext="{Binding TextGraphics}" StretchDirection="DownOnly" MaxWidth="1700"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,120"
+                             Visibility="{Binding PromptVisible, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding PromptText}" FontFamily="{StaticResource NumFont}" FontSize="170"
+                                   FontWeight="Bold" Foreground="White" RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#FF22C3E6" BlurRadius="40" ShadowDepth="0" Opacity="0.9" />
+                            </TextBlock.Effect>
+                            <TextBlock.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1" />
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding PromptVisible}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard Name="PromptPulse">
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                         From="0.5" To="1" Duration="0:0:0.35">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <BackEase EasingMode="EaseOut" Amplitude="0.6" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                         From="0.5" To="1" Duration="0:0:0.35">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <BackEase EasingMode="EaseOut" Amplitude="0.6" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                         BeginTime="0:0:0.35" From="1" To="1.07" Duration="0:0:0.4"
+                                                                         AutoReverse="True" RepeatBehavior="Forever" />
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                         BeginTime="0:0:0.35" From="1" To="1.07" Duration="0:0:0.4"
+                                                                         AutoReverse="True" RepeatBehavior="Forever" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="PromptPulse" />
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Viewbox>
                 </Grid>
             </Grid>
         </Grid>

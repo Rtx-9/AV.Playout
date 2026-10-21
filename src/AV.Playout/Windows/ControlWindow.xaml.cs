@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,6 +14,7 @@ using AV.Playout.Graphics;
 using AV.Playout.Media;
 using AV.Playout.Services;
 using AV.Playout.Triggers;
+using AV.Playout.Venue;
 using Microsoft.Win32;
 
 namespace AV.Playout.Windows;
@@ -40,19 +42,23 @@ public partial class ControlWindow : Window
     private readonly PlayoutEngine _engine;
     private readonly OutputWindow _output;
     private readonly ShowFile _show;
+    private readonly AsRunLog _asRun;
     private readonly DispatcherTimer _saveTimer;
+    private VenueWindow? _venue;
     private GlobalKeyboardHook? _hook;
     private ClipSlot? _assigningHotkeyFor;
     private bool _showLoaded;
 
-    public ControlWindow(PlayoutEngine engine, OutputWindow output, ShowFile show)
+    public ControlWindow(PlayoutEngine engine, OutputWindow output, ShowFile show, AsRunLog asRun)
     {
         _engine = engine;
         _output = output;
         _show = show;
+        _asRun = asRun;
 
         InitializeComponent();
         DataContext = engine;
+        AsRunPanel.DataContext = asRun;
         SwatchList.ItemsSource = Swatches;
 
         GlobalKeysToggle.IsChecked = show.GlobalKeys;
@@ -219,7 +225,7 @@ public partial class ControlWindow : Window
         if (_engine.FindSlot(hotkey) is not { } slot)
             return false;
 
-        Dispatcher.BeginInvoke(() => _engine.Execute(new TriggerSlotCommand(slot.Layer, slot.Column)), DispatcherPriority.Send);
+        Dispatcher.BeginInvoke(() => _engine.Execute(new TriggerSlotCommand(slot.Layer, slot.Column, TriggerOrigin.Hotkey)), DispatcherPriority.Send);
         return true;
     }
 
@@ -411,6 +417,43 @@ public partial class ControlWindow : Window
             _engine.ClearSlot(slot);
     }
 
+    // ---- Text graphics, rotation, as-run, venue ---------------------------------------
+
+    private void Graphics_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).Tag is string tag && Enum.TryParse(tag, out GraphicsAction action))
+            _engine.Execute(new GraphicsCommand(action));
+    }
+
+    private void PromptPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is string text)
+            _engine.Execute(new GraphicsCommand(GraphicsAction.ShowPrompt, text));
+    }
+
+    private void Rotation_Click(object sender, RoutedEventArgs e) =>
+        _engine.Execute(new RotationCommand(!_engine.RotationRunning));
+
+    private void OpenAsRun_Click(object sender, RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(AsRunLog.Directory);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{AsRunLog.Directory}\"") { UseShellExecute = true });
+    }
+
+    private void Venue_Click(object sender, RoutedEventArgs e)
+    {
+        if (_venue is null)
+        {
+            _venue = new VenueWindow(_engine) { Owner = this };
+            _venue.Closed += (_, _) => _venue = null;
+            _venue.Show();
+        }
+        else
+        {
+            _venue.Activate();
+        }
+    }
+
     // ---- Scoreboard -------------------------------------------------------------------
 
     private void Score_Click(object sender, RoutedEventArgs e)
@@ -437,6 +480,8 @@ public partial class ControlWindow : Window
         CueSlotCommand c => $"Cued {_engine.GetLayer(c.Layer).Slots[c.Column].Name}",
         ClearLayerCommand c => $"Cleared {c.Layer}",
         ScoreboardCommand c => $"Scoreboard: {c.Action}",
+        GraphicsCommand c => c.Text is null ? $"Graphics: {c.Action}" : $"Prompt: {c.Text}",
+        RotationCommand c => c.Run ? "Rotation started" : "Rotation stopped",
         _ => command.GetType().Name.Replace("Command", ""),
     };
 
@@ -446,7 +491,11 @@ public partial class ControlWindow : Window
 
     private void WatchForChanges()
     {
-        string[] slotProps = [nameof(ClipSlot.Name), nameof(ClipSlot.Source), nameof(ClipSlot.Kind), nameof(ClipSlot.Mode), nameof(ClipSlot.Hotkey)];
+        string[] slotProps =
+        [
+            nameof(ClipSlot.Name), nameof(ClipSlot.Source), nameof(ClipSlot.Kind), nameof(ClipSlot.Mode),
+            nameof(ClipSlot.Hotkey), nameof(ClipSlot.InRotation), nameof(ClipSlot.DwellSeconds),
+        ];
         foreach (var slot in _engine.AllSlots)
             slot.PropertyChanged += (_, e) => { if (slotProps.Contains(e.PropertyName)) MarkDirty(); };
         foreach (var layer in _engine.LayersBottomUp)
@@ -456,6 +505,15 @@ public partial class ControlWindow : Window
         {
             if (e.PropertyName is nameof(Scoreboard.HomeName) or nameof(Scoreboard.AwayName)) MarkDirty();
         };
+        _engine.TextGraphics.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(TextGraphics.LowerThirdTitle) or nameof(TextGraphics.LowerThirdSubtitle)
+                or nameof(TextGraphics.TickerText) or nameof(TextGraphics.TickerSpeed)
+                or nameof(TextGraphics.PromptAutoHide) or nameof(TextGraphics.PromptSeconds))
+                MarkDirty();
+        };
+        foreach (var screen in _engine.Screens)
+            screen.PropertyChanged += (_, _) => MarkDirty();
     }
 
     private void MarkDirty()
@@ -500,6 +558,7 @@ public partial class ControlWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SaveShow();
+        _asRun.Flush();
         _hook?.Dispose();
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _engine.CommandExecuted -= OnCommandExecuted;

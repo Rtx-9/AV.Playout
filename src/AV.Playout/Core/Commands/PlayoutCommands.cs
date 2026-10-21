@@ -10,7 +10,7 @@ namespace AV.Playout.Core.Commands;
 public abstract record PlayoutCommand;
 
 /// <summary>Trigger the clip in a slot. An empty slot clears the layer.</summary>
-public sealed record TriggerSlotCommand(LayerKind Layer, int Column) : PlayoutCommand;
+public sealed record TriggerSlotCommand(LayerKind Layer, int Column, TriggerOrigin Origin = TriggerOrigin.Operator) : PlayoutCommand;
 
 /// <summary>Trigger every filled slot in a column, across all layers.</summary>
 public sealed record TriggerColumnCommand(int Column) : PlayoutCommand;
@@ -40,3 +40,11 @@ public enum ScoreboardAction
 }
 
 public sealed record ScoreboardCommand(ScoreboardAction Action) : PlayoutCommand;
+
+public enum GraphicsAction { ShowLowerThird, HideLowerThird, ShowTicker, HideTicker, ShowPrompt, HidePrompt }
+
+/// <summary>Text graphics. <paramref name="Text"/> is used by <see cref="GraphicsAction.ShowPrompt"/>.</summary>
+public sealed record GraphicsCommand(GraphicsAction Action, string? Text = null) : PlayoutCommand;
+
+/// <summary>Start / stop the MEDIA layer's automatic sponsor rotation.</summary>
+public sealed record RotationCommand(bool Run) : PlayoutCommand;

@@ -51,7 +51,8 @@ public partial class App : Application
         var show = ShowStore.Load();
         var engine = new PlayoutEngine(CanvasWidth, CanvasHeight);
         var output = new OutputWindow(engine);
-        var control = new ControlWindow(engine, output, show);
+        var asRun = new AsRunLog(engine);
+        var control = new ControlWindow(engine, output, show, asRun);
 
         // The first Window constructed becomes MainWindow automatically; that was the
         // output. Make the operator window the one whose closing ends the app.

@@ -29,6 +29,11 @@ public sealed class ClipSlot : ObservableObject
     private ImageSource? _thumbnail;
     private BitmapSource? _still;
     private bool _isPlaying, _isCued, _isSelected, _isLoading;
+    private bool _inRotation;
+    private double _dwellSeconds = 15;
+    private double _progress;
+    private string? _remainingText;
+    private bool _isEnding;
 
     public ClipSlot(LayerKind layer, int column)
     {
@@ -111,6 +116,31 @@ public sealed class ClipSlot : ObservableObject
     public bool IsSelected { get => _isSelected; set => SetField(ref _isSelected, value); }
     public bool IsLoading { get => _isLoading; set => SetField(ref _isLoading, value); }
 
+    // ---- Sponsor rotation ---------------------------------------------------------------
+
+    /// <summary>Part of the MEDIA layer's automatic sponsor rotation.</summary>
+    public bool InRotation { get => _inRotation; set => SetField(ref _inRotation, value); }
+
+    /// <summary>Seconds on air per rotation turn. 0 = play a video once to its end.</summary>
+    public double DwellSeconds
+    {
+        get => _dwellSeconds;
+        set => SetField(ref _dwellSeconds, Math.Clamp(Math.Round(value), 0, 3600));
+    }
+
+    // ---- Countdown (set by the engine for the on-air slot) ------------------------------
+
+    public double Progress { get => _progress; private set => SetField(ref _progress, value); }
+    public string? RemainingText { get => _remainingText; private set => SetField(ref _remainingText, value); }
+    public bool IsEnding { get => _isEnding; private set => SetField(ref _isEnding, value); }
+
+    internal void SetProgress(double progress, string? remaining, bool ending)
+    {
+        Progress = progress;
+        RemainingText = remaining;
+        IsEnding = ending;
+    }
+
     public void Clear()
     {
         Name = "";
@@ -120,5 +150,7 @@ public sealed class ClipSlot : ObservableObject
         Hotkey = null;
         Thumbnail = null;
         Still = null;
+        InRotation = false;
+        DwellSeconds = 15;
     }
 }

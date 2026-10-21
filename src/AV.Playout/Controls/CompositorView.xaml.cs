@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 
 namespace AV.Playout.Controls;
@@ -12,4 +13,7 @@ public partial class CompositorView : UserControl
     {
         InitializeComponent();
     }
+
+    /// <summary>The canvas at its native raster: the visual the venue screens sample from.</summary>
+    public FrameworkElement ProgramCanvas => CanvasRoot;
 }

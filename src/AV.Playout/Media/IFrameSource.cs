@@ -24,6 +24,12 @@ public interface IFrameSource : IDisposable
 
     /// <summary>Starts a source that was pre-buffered paused on its first frame.</summary>
     void Resume();
+
+    /// <summary>Playback position, or null for sources without a timeline (stills, live).</summary>
+    TimeSpan? Position { get; }
+
+    /// <summary>Clip length, or null for sources without a timeline (stills, live).</summary>
+    TimeSpan? Duration { get; }
 }
 
 /// <summary>A pre-decoded still image. Ready immediately.</summary>
@@ -34,6 +40,9 @@ public sealed class StillSource(ImageSource image) : IFrameSource
 
     public event EventHandler? ImageChanged { add { } remove { } }
     public event EventHandler? Ended { add { } remove { } }
+
+    public TimeSpan? Position => null;
+    public TimeSpan? Duration => null;
 
     public void Resume() { }
     public void Dispose() { }
