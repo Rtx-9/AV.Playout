@@ -1,0 +1,17 @@
+<Window x:Class="AV.Playout.Windows.OutputWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AV.Playout.Controls"
+        Title="AV Playout — Program Output"
+        Background="Black"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        SizeToContent="Manual"
+        ShowActivated="False">
+    <!--
+        Deliberately NOT AllowsTransparency="True": that makes a layered window and
+        forces a slow software composition path. Alpha lives inside the compositor.
+    -->
+    <controls:CompositorView />
+</Window>
