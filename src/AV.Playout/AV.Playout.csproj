@@ -15,4 +15,17 @@
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
+  <PropertyGroup Label="LibVLC payload">
+    <!-- x64 only, and drop plugins a playout engine never loads (VLC's own GUIs,
+         Lua scripting, audio visualisations, streaming output, remote control). -->
+    <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+    <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
+    <VlcWindowsX64ExcludeFiles>plugins\gui\%2A;plugins\lua\%2A;plugins\visualization\%2A;plugins\stream_out\%2A;plugins\control\%2A</VlcWindowsX64ExcludeFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibVLCSharp" Version="3.10.2" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.24" />
+  </ItemGroup>
+
 </Project>

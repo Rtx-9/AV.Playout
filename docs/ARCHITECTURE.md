@@ -59,9 +59,9 @@ C# / WPF on .NET 10, Windows 10/11 x64.
 2. **No airspace problems: no HWND hosting inside the compositor.**
    LibVLCSharp's WPF `VideoView` hosts a native child window; WPF cannot draw
    over it with real alpha, which would kill the graphics layer. Instead, video
-   decodes through LibVLC's *video callbacks* (`SetVideoFormat` /
-   `SetVideoCallbacks`) straight into a double-buffered `WriteableBitmap` that
-   the media layer displays. Upgrade path if 4K60 CPU copies get too expensive:
+   decodes through LibVLC's *video callbacks* (`SetVideoFormatCallbacks` /
+   `SetVideoCallbacks`) into a ring of native buffers, copied into a
+   `WriteableBitmap` once per frame. Upgrade path if 4K60 CPU copies get too expensive:
    D3D11 shared texture → `D3DImage`. NDI frames and capture-card frames use the
    same `WriteableBitmap` contract, so every layer composes with true alpha on
    the GPU.
@@ -89,93 +89,81 @@ C# / WPF on .NET 10, Windows 10/11 x64.
    the cursor, and the app blocks display sleep. Unhandled UI exceptions are
    logged rather than crashing the process.
 
-## 3. Hardware triggering plan (Phase 3)
+## 3. Requirements status
 
-- **Raw Input** (`RegisterRawInputDevices` with `RIDEV_INPUTSINK`) receives keys
-  while the app is in the background *and* tells us which physical device sent
-  them, so the macro keypad can be told apart from the operator's keyboard.
-- **Low-level keyboard hook** (`WH_KEYBOARD_LL`) is used alongside it only to
-  *swallow* keypad keystrokes so they don't type into whatever has focus. Raw
-  Input can identify but not suppress; the hook can suppress but not identify.
-- Practical tip: program the keypad to send **F13–F24** (and modifiers). No
-  normal application uses them, so collisions disappear.
-- **MIDI**: DryWetMIDI (or NAudio.Midi) input device → note/CC → trigger id.
-- **Takeovers** (e.g. "Home Goal"): a command that snapshots the current layer
-  state, plays the blast clip on the media layer, then restores the snapshot when
-  the clip ends or the operator hits the trigger again.
+How the "Feature Requirements Document" maps onto the code, and where it
+deliberately deviates.
 
-## 4. File structure
+| Requirement | Status | Notes |
+|---|---|---|
+| Auto-detect displays, output on the external one, dashboard on primary | ✅ | `DisplayService` (Win32 `EnumDisplayMonitors`) + `OutputWindow.ShowOn`. **Deviation:** not `Screen.AllScreens` + `WindowState=Maximized`. Maximize works in DIPs and snaps to whichever monitor WPF thinks the window is on, which breaks with mixed DPI scaling. `SetWindowPos` with the monitor's physical rectangle is exact and is re-applied on DPI change and display hot-plug. |
+| Strict z-order: Media < Live < Graphics | ✅ | `CompositorView`: background, then `LayersBottomUp`, scorebug last. |
+| MP4/MOV hardware-accelerated looping | ✅ | `VlcSource` (LibVLCSharp, `input-repeat`). |
+| Live ingest: capture cards | ✅ | LIVE row, `dshow://` (webcams, capture cards, Blackmagic DeckLink via its DirectShow driver), plus `rtsp://`, `srt://`, `udp://` streams. |
+| Live ingest: NDI | ⏳ | Needs the NDI runtime and a wrapper (the NDI SDK's C# interop or a NuGet wrapper). Plugs in as another `IFrameSource`. |
+| Data overlay with native text | ✅ | `ScoreBug.xaml` bound to `Scoreboard`: clock, periods, scores, penalties. |
+| HTML overlay (CefSharp) | ⏳ | Deferred: ~150 MB dependency. Would render off-screen into the GRAPHICS layer as another `IFrameSource`. |
+| Global keyboard hook (`SetWindowsHookEx`) | ✅ | `GlobalKeyboardHook` (WH_KEYBOARD_LL). Swallows claimed keys, filters auto-repeat, toggleable. |
+| "Home Goal" macro: mute live, fire animation | ✅ | Clip mode **TAKEOVER**: gates every layer above it except graphics, restores the previous clip at the end. |
+| DoubleAnimation crossfades | ✅ | `Deck.FadeTo`: each layer has A/B decks; the new deck only fades in once its first frame has decoded, so a trigger never flashes black. |
+| Alpha video (.webm / ProRes 4444) | ✅ / ⚠ | BGRA pipeline keeps alpha: ProRes 4444 and QuickTime Animation work (verified with QT Animation). WebM VP9 alpha is not decoded with alpha by LibVLC 3; convert those to ProRes 4444. |
+| Pre-buffered preview, async loading | ✅ | Right-click cues into PREVIEW paused on frame one; TAKE hands that same decoder to program. Stills decode off the UI thread; thumbnails load in the background. |
+| Decode/ingest off the UI thread | ✅ | LibVLC decodes on its own threads into a native buffer ring; the UI thread only copies the newest frame once per vsync. The game clock is Stopwatch-driven, so a heavy decode can't slow it. |
 
-✅ = delivered in Phase 1. Everything else is where it will land.
+## 4. Hardware triggering
+
+- **Now:** `WH_KEYBOARD_LL` hook. Program the keypad to send **F13–F24** (and
+  modifiers): no normal application uses them, so nothing collides.
+- **Next:** Raw Input (`RegisterRawInputDevices` + `RIDEV_INPUTSINK`) to tell
+  *which* device sent a key, so a keypad can use ordinary keys without stealing
+  them from the operator's keyboard. Raw Input identifies; the hook suppresses.
+- **MIDI:** DryWetMIDI (or NAudio.Midi) note/CC → the same `TriggerSlotCommand`.
+
+## 5. File structure
 
 ```
 AV.Playout/
 ├─ AV.Playout.slnx
 ├─ README.md
-├─ docs/
-│  └─ ARCHITECTURE.md
+├─ docs/ARCHITECTURE.md
 └─ src/AV.Playout/
-   ├─ AV.Playout.csproj                 ✅
-   ├─ app.manifest                        ✅ Per-Monitor-V2 DPI awareness
-   ├─ App.xaml / App.xaml.cs              ✅ composition root, keep-awake, crash guard
-   ├─ Themes/
-   │  └─ Dark.xaml                        ✅ control-room theme
+   ├─ AV.Playout.csproj            LibVLC payload trimmed to x64 + needed plugins
+   ├─ app.manifest                 Per-Monitor-V2 DPI awareness
+   ├─ App.xaml(.cs)                composition root, keep-awake, crash guard + log, --show
+   ├─ Themes/Dark.xaml             control-room theme (faders, toggles, combo, scrollbars)
    ├─ Core/
-   │  ├─ ObservableObject.cs              ✅
-   │  ├─ PlayoutEngine.cs                 ✅ layer state + command execution
-   │  ├─ Commands/PlayoutCommands.cs      ✅ command records
-   │  ├─ Layers/LayerKind.cs              ✅
-   │  ├─ Layers/LayerState.cs             ✅
-   │  └─ Takeovers/TakeoverController.cs     P3 snapshot / blast / restore
+   │  ├─ PlayoutEngine.cs          program state, triggers, cue/take, takeovers
+   │  ├─ Commands/PlayoutCommands.cs
+   │  └─ Layers/  Layer.cs (clip row + A/B decks), Deck.cs (animatable), LayerKind.cs
    ├─ Media/
-   │  ├─ StillItem.cs                     ✅ pre-decoded GPU-ready stills
-   │  ├─ ClipItem.cs                         P2
-   │  ├─ MediaBin.cs                         P2 grid bin, preload policy
-   │  └─ VlcFrameSource.cs                   P2 LibVLC → WriteableBitmap, seamless loop
-   ├─ Live/
-   │  ├─ IFrameSource.cs                     P2 shared contract for every video source
-   │  ├─ NdiFrameSource.cs                   P4
-   │  └─ CaptureFrameSource.cs               P4 (LibVLC dshow:// or Media Foundation)
-   ├─ Graphics/
-   │  ├─ GameClock.cs                        P5
-   │  ├─ PenaltyTimer.cs                     P5
-   │  └─ Templates/ScoreBug.xaml             P5
-   ├─ Triggers/
-   │  ├─ ITriggerSource.cs                   P3
-   │  ├─ RawInputKeypadSource.cs             P3
-   │  ├─ LowLevelKeyboardHook.cs             P3
-   │  ├─ MidiTriggerSource.cs                P3
-   │  └─ CueMap.cs  (+ cuemap.json)          P3
-   ├─ Services/
-   │  ├─ DisplayService.cs                ✅ monitor enumeration (physical px)
-   │  └─ ShowFileService.cs                  P6 save/load show
-   ├─ Interop/
-   │  └─ NativeMethods.cs                 ✅ user32 / kernel32 P/Invoke
-   ├─ Controls/
-   │  └─ CompositorView.xaml(.cs)         ✅ the layer stack, used by both windows
-   └─ Windows/
-      ├─ ControlWindow.xaml(.cs)          ✅ operator dashboard
-      └─ OutputWindow.xaml(.cs)           ✅ borderless LED output
+   │  ├─ IFrameSource.cs           contract for every picture source (+ StillSource)
+   │  ├─ VlcSource.cs              LibVLC → WriteableBitmap, buffer ring, cue/pause
+   │  ├─ ClipSlot.cs               one grid cell: source, mode, hotkey, tally
+   │  └─ ClipLoader.cs             classify, decode stills, grab thumbnails
+   ├─ Graphics/Scoreboard.cs       clock, periods, scores, penalties
+   ├─ Triggers/  GlobalKeyboardHook.cs, Hotkey.cs
+   ├─ Services/  DisplayService.cs, ShowStore.cs, Log.cs
+   ├─ Interop/NativeMethods.cs
+   ├─ Controls/  CompositorView, ScoreBug, Converters
+   └─ Windows/   ControlWindow (dashboard), OutputWindow (LED output)
 ```
 
-When the Core grows (P3+), split `Core/`, `Triggers/` and the frame-source
-contracts into an `AV.Playout.Core` class library so it can be unit-tested
-without WPF windows.
+## 6. Roadmap
 
-## 5. Roadmap
+| Phase | Deliverable | |
+|-------|-------------|---|
+| 1 | Dual window, compositor, command bus, display placement | ✅ |
+| 2 | Media layer: LibVLC renderer, clip grid, crossfades, PVW/PGM | ✅ |
+| 3 | Global hotkeys, takeovers | ✅ (Raw Input + MIDI next) |
+| 4 | Live layer: capture / streams ✅, NDI ⏳ | partial |
+| 5 | Scorebug ✅, HTML overlays ⏳ | partial |
+| 6 | Show file ✅, as-run log for sponsor proof-of-play, watchdog, settings UI (canvas size) | partial |
 
-| Phase | Deliverable |
-|-------|-------------|
-| **1** | Dual window, compositor, command bus, display placement *(this drop)* |
-| 2 | Media layer: LibVLC frame-callback renderer, preloaded clips, gapless loops, grid media bin, PVW/PGM |
-| 3 | Hardware triggers: Raw Input + LL hook, MIDI, cue map, takeovers |
-| 4 | Live layer: NDI receiver, capture card |
-| 5 | Graphics layer: game clock, penalty timers, score bug templates |
-| 6 | Show files, as-run log, watchdog, config UI |
-
-## 6. Timing notes
+## 7. Timing notes
 
 WPF composes once per display refresh. A command executed on the UI thread is
-on the wall at the next vsync (≤ 16.7 ms at 60 Hz, ≤ 20 ms at 50 Hz). Match the
-LED processor's input rate to your content frame rate (50 or 60) to avoid
+on the wall at the next vsync (≤ 16.7 ms at 60 Hz, ≤ 20 ms at 50 Hz) — for
+stills. Video adds LibVLC's open + first-frame time (typically 50–150 ms with the
+reduced `file-caching`); cue a clip to PREVIEW and TAKE it for zero-latency
+starts. Match the LED processor's input rate to your content (50 or 60) to avoid
 judder; WPF cannot genlock.

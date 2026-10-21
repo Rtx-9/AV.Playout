@@ -1,37 +1,56 @@
 <UserControl x:Class="AV.Playout.Controls.CompositorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             RenderOptions.BitmapScalingMode="HighQuality"
+             xmlns:c="clr-namespace:AV.Playout.Controls"
+             RenderOptions.BitmapScalingMode="Linear"
              UseLayoutRounding="True"
              SnapsToDevicePixels="True">
     <!--
-        The program layer stack. DataContext is the PlayoutEngine.
-        The inner Grid is the program canvas at its native raster; the Viewbox fits it
-        to the LED output and, scaled down, to the operator's monitor.
+        The program composition. DataContext is the PlayoutEngine.
+        The inner Grid is the canvas at its native raster; the Viewbox fits it to the
+        LED output and, scaled down, to the operator's program monitor.
+
+        Strict z-order, bottom to top:
+          0  background colour
+          1  MEDIA     (sponsor loops, hype videos, stills)
+          2  LIVE      (camera / capture / stream)
+          3  GRAPHICS  (alpha clips, then the scorebug on top)
     -->
     <Viewbox Stretch="Uniform">
-        <Grid Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" ClipToBounds="True">
+        <Grid Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" ClipToBounds="True" Background="Black">
+            <Grid Opacity="{Binding MasterOpacity}">
+                <Rectangle Fill="{Binding Background}" />
 
-            <!-- 0: background colour -->
-            <Rectangle Fill="{Binding Background}" />
+                <ItemsControl ItemsSource="{Binding LayersBottomUp}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Grid />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- fader × takeover gate, bypass removes the layer entirely -->
+                            <Grid Opacity="{Binding Opacity}"
+                                  Visibility="{Binding Bypass, Converter={StaticResource InverseBoolToVis}}">
+                                <Grid Opacity="{Binding Gate.Opacity}">
+                                    <Image Source="{Binding DeckA.Source}" Opacity="{Binding DeckA.Opacity}"
+                                           Panel.ZIndex="{Binding DeckA.ZIndex}" Stretch="Uniform" />
+                                    <Image Source="{Binding DeckB.Source}" Opacity="{Binding DeckB.Opacity}"
+                                           Panel.ZIndex="{Binding DeckB.ZIndex}" Stretch="Uniform" />
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-            <!-- 1: media (stills now, video frames in Phase 2) -->
-            <Image Source="{Binding Media.Source}"
-                   Opacity="{Binding Media.Opacity}"
-                   Visibility="{Binding Media.IsVisible, Converter={StaticResource BoolToVis}}"
-                   Stretch="Uniform" />
-
-            <!-- 2: live input (NDI / capture, Phase 4) -->
-            <Image Source="{Binding Live.Source}"
-                   Opacity="{Binding Live.Opacity}"
-                   Visibility="{Binding Live.IsVisible, Converter={StaticResource BoolToVis}}"
-                   Stretch="Uniform" />
-
-            <!-- 3: graphics with alpha (clocks, timers, Phase 5) -->
-            <Image Source="{Binding Graphics.Source}"
-                   Opacity="{Binding Graphics.Opacity}"
-                   Visibility="{Binding Graphics.IsVisible, Converter={StaticResource BoolToVis}}"
-                   Stretch="Uniform" />
+                <!-- Scorebug: part of the graphics layer, drawn as native WPF text -->
+                <Grid Opacity="{Binding Graphics.Opacity}"
+                      Visibility="{Binding Graphics.Bypass, Converter={StaticResource InverseBoolToVis}}">
+                    <c:ScoreBug DataContext="{Binding Scoreboard}"
+                                Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,56" />
+                </Grid>
+            </Grid>
         </Grid>
     </Viewbox>
 </UserControl>

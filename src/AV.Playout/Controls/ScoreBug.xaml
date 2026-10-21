@@ -1,0 +1,85 @@
+<UserControl x:Class="AV.Playout.Controls.ScoreBug"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource NumFont}"
+             TextOptions.TextFormattingMode="Ideal"
+             TextOptions.TextRenderingMode="Grayscale">
+    <!-- Designed in 1920×1080 canvas pixels. DataContext is the Scoreboard. -->
+    <UserControl.Resources>
+        <DataTemplate x:Key="PenaltyChip">
+            <Border Background="#E6F5A524" CornerRadius="3" Padding="10,2" Margin="4,0">
+                <TextBlock Text="{Binding Text}" FontSize="24" FontWeight="SemiBold" Foreground="Black" />
+            </Border>
+        </DataTemplate>
+        <ItemsPanelTemplate x:Key="ChipRow">
+            <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <Border CornerRadius="6" ClipToBounds="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.6" />
+            </Border.Effect>
+            <Grid Height="84">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="96" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="96" />
+                    <ColumnDefinition Width="300" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Home -->
+                <Border Grid.Column="0" CornerRadius="6,0,0,6">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#FFD7262E" Offset="0" />
+                            <GradientStop Color="#FF9E141A" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <TextBlock Text="{Binding HomeName}" FontSize="40" FontWeight="Bold" Foreground="White"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="16,0" />
+                </Border>
+                <Border Grid.Column="1" Background="#FF0F1114">
+                    <TextBlock Text="{Binding HomeScore}" FontSize="58" FontWeight="Bold" Foreground="White"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <!-- Clock / period -->
+                <Border Grid.Column="2" Background="#FF1B1E23">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ClockText}" FontSize="50" FontWeight="SemiBold" Foreground="White"
+                                   HorizontalAlignment="Center" LineHeight="50" LineStackingStrategy="BlockLineHeight" />
+                        <TextBlock Text="{Binding PeriodText}" FontSize="22" Foreground="#FF22C3E6"
+                                   HorizontalAlignment="Center" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Away -->
+                <Border Grid.Column="3" Background="#FF0F1114">
+                    <TextBlock Text="{Binding AwayScore}" FontSize="58" FontWeight="Bold" Foreground="White"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border Grid.Column="4" CornerRadius="0,6,6,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#FF2A5FE0" Offset="0" />
+                            <GradientStop Color="#FF173A9A" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <TextBlock Text="{Binding AwayName}" FontSize="40" FontWeight="Bold" Foreground="White"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="16,0" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Penalty clocks under each team -->
+        <Grid Margin="0,8,0,0">
+            <ItemsControl ItemsSource="{Binding HomePenalties}" ItemTemplate="{StaticResource PenaltyChip}"
+                          ItemsPanel="{StaticResource ChipRow}" HorizontalAlignment="Left" Margin="12,0,0,0" />
+            <ItemsControl ItemsSource="{Binding AwayPenalties}" ItemTemplate="{StaticResource PenaltyChip}"
+                          ItemsPanel="{StaticResource ChipRow}" HorizontalAlignment="Right" Margin="0,0,12,0" />
+        </Grid>
+    </StackPanel>
+</UserControl>
